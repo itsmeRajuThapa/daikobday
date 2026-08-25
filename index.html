@@ -370,6 +370,21 @@ footer{padding:40px 4vw 60px;color:var(--text-faint);font-size:12px;border-top:1
 .lightbox-fallback{color:var(--text-dim);text-align:center;font-size:14.5px;max-width:320px;line-height:1.6;}
 .lightbox-fallback .fallback-emoji{font-size:70px;margin-bottom:16px;}
 
+#lightbox-prev,#lightbox-next{
+  position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;
+  font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;
+  transition:transform .2s, background .2s;
+}
+#lightbox-prev:hover,#lightbox-next:hover{background:var(--red);transform:translateY(-50%) scale(1.08);}
+#lightbox-prev{left:18px;}
+#lightbox-next{right:18px;}
+#lightbox-counter{position:absolute;top:20px;left:22px;color:var(--text-dim);font-size:12px;letter-spacing:1px;font-family:var(--mono);}
+@media (max-width:640px){
+  #lightbox-prev,#lightbox-next{width:42px;height:42px;font-size:16px;}
+  #lightbox-prev{left:8px;} #lightbox-next{right:8px;}
+}
+
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
 }
@@ -569,6 +584,9 @@ footer{padding:40px 4vw 60px;color:var(--text-faint);font-size:12px;border-top:1
 <!-- ============ FULLSCREEN LIGHTBOX ============ -->
 <div id="lightbox" onclick="if(event.target===this) closeLightbox()">
   <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button id="lightbox-prev" onclick="navLightbox(-1)">◀</button>
+  <button id="lightbox-next" onclick="navLightbox(1)">▶</button>
+  <div id="lightbox-counter"></div>
   <div id="lightbox-content"></div>
   <div id="lightbox-caption"></div>
 </div>
@@ -812,9 +830,9 @@ behindScenes: [
   letterText: "Dear Big Brother,\n\nFrom the day I showed up and ruined your only-child life until today, it's been one long, ridiculous, wonderful ride.\nI remember the fights over nothing, the times you covered for me, and the family trips where nothing went to plan but somehow became our favorite memories anyway.\nYou've always had my back, even when you were busy pretending you didn't care. Thank you for every laugh, every time you looked out for me without me asking, and for just always being there.\n\nI will always love you.\nHappy Birthday. From your little sister, always.",
 
   scenes: [
-    { img:'images/familyoldphoto.jpeg', tag:'Chapter 1 · Origins', caption:'Our hero enters the world... screaming, as legends do.' },
+    { img:'images/familyoldphoto.jpeg', emoji:'🎂',tag:'Chapter 1 · Origins', caption:'Our hero enters the world... screaming, as legends do.' },
     { img:'images/scene-2.jpg', emoji:'🎂', tag:'Chapter 1 · Origins', caption:'Scene: First Birthday. The cake never stood a chance.' },
-    { img:'images/scene-3.jpg', emoji:'🧃', tag:'Chapter 2 · Rising Action', caption:'[laughter] He once called juice "soup" and nobody corrected him.' },
+    { img:'images/scene-3.jpg', emoji:'🧃', tag:'Chapter 2 · Rising Action', caption:'He once called juice "soup" and nobody corrected him.' },
     { img:'images/scene-4.jpg', emoji:'🎒', tag:'Chapter 2 · Rising Action', caption:'Level up: School Arc. Survived homework. Mostly.' },
     { img:'images/scene-5.jpg', emoji:'💇', tag:'Chapter 3 · The Trials', caption:'The teenage years. Hair-gel budget exceeded the national debt.' },
     { img:'images/scene-6.jpg', emoji:'🤙', tag:'Chapter 3 · The Trials', caption:'Sidekicks assemble: the friends who never left.' },
@@ -1119,11 +1137,23 @@ function setupGift(){
    FULLSCREEN LIGHTBOX — click any card to view its photo or
    video full-screen. Add a "video: 'images/xxx.mp4'" field to
    any CONFIG entry to make it open a playable video instead of
-   the still photo.
+   the still photo. Prev/Next arrows move through the same
+   gallery (section) the clicked item belongs to.
 ============================================================ */
+let lightboxSection = null;
+let lightboxIndex = 0;
+
 function openLightboxById(sectionKey, idx){
-  const item = CONFIG[sectionKey][idx];
-  if(item) openLightbox(item);
+  lightboxSection = sectionKey;
+  lightboxIndex = idx;
+  renderLightbox();
+}
+
+function navLightbox(dir){
+  if(!lightboxSection) return;
+  const list = CONFIG[lightboxSection];
+  lightboxIndex = (lightboxIndex + dir + list.length) % list.length;
+  renderLightbox();
 }
 
 function lightboxFallback(item){
@@ -1134,10 +1164,17 @@ function lightboxFallback(item){
   </div>`;
 }
 
-function openLightbox(item){
+function renderLightbox(){
+  const list = CONFIG[lightboxSection];
+  const item = list[lightboxIndex];
+  if(!item) return;
+
   const lb = document.getElementById('lightbox');
   const content = document.getElementById('lightbox-content');
   const caption = document.getElementById('lightbox-caption');
+  const counter = document.getElementById('lightbox-counter');
+  const prevBtn = document.getElementById('lightbox-prev');
+  const nextBtn = document.getElementById('lightbox-next');
   content.innerHTML = '';
 
   if(item.video){
@@ -1159,6 +1196,12 @@ function openLightbox(item){
   }
 
   caption.textContent = item.title || item.text || item.year || '';
+
+  const showNav = list.length > 1;
+  prevBtn.style.display = showNav ? 'flex' : 'none';
+  nextBtn.style.display = showNav ? 'flex' : 'none';
+  counter.textContent = showNav ? `${lightboxIndex + 1} / ${list.length}` : '';
+
   lb.classList.add('active');
   document.body.style.overflow = 'hidden';
 
@@ -1176,11 +1219,17 @@ function closeLightbox(){
   lb.classList.remove('active');
   document.body.style.overflow = '';
   content.innerHTML = '';
+  lightboxSection = null;
   if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); }
   else if(document.webkitFullscreenElement && document.webkitExitFullscreen){ document.webkitExitFullscreen(); }
 }
 
-document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if(!document.getElementById('lightbox').classList.contains('active')) return;
+  if(e.key === 'Escape') closeLightbox();
+  if(e.key === 'ArrowLeft') navLightbox(-1);
+  if(e.key === 'ArrowRight') navLightbox(1);
+});
 
 /* ============================================================
    CINEMATIC OVERLAY (movie sequence + finale)
@@ -1241,23 +1290,37 @@ async function startMovie(){
   titleCard.classList.remove('show');
   await wait(600);
 
-  for(const s of CONFIG.scenes){
-    const layer = document.createElement('div');
-    layer.className = 'scene-layer';
-    layer.innerHTML = `<div class="scene-tag">${s.tag}</div>
-      <div class="scene-photo-frame">
-        ${s.img ? `<img src="${s.img}" alt="" onerror="this.remove()">` : ''}
-        <div class="scene-emoji">${s.emoji}</div>
-      </div>
-      <div class="scene-caption">${s.caption}</div>`;
-    scenesContainer.appendChild(layer);
-    await wait(30);
-    layer.classList.add('show');
-    await wait(2400);
-    layer.classList.remove('show');
-    await wait(500);
-    layer.remove();
-  }
+for (const s of CONFIG.scenes) {
+  const layer = document.createElement('div');
+  layer.className = 'scene-layer';
+
+  layer.innerHTML = `
+    <div class="scene-tag">${s.tag}</div>
+
+    <div class="scene-photo-frame">
+      ${
+        s.img
+          ? `<img src="${s.img}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+             <div class="scene-emoji" style="display:none;">${s.emoji || ''}</div>`
+          : `<div class="scene-emoji">${s.emoji || ''}</div>`
+      }
+    </div>
+
+    <div class="scene-caption">${s.caption}</div>
+  `;
+
+  scenesContainer.appendChild(layer);
+
+  await wait(30);
+  layer.classList.add('show');
+
+  await wait(2400);
+  layer.classList.remove('show');
+
+  await wait(500);
+  layer.remove();
+}
+
 
   await finishToFinale();
 }
